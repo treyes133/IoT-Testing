@@ -1,7 +1,7 @@
 import socket
 import sys
 global led
-import pycom
+import pycom, binascii
 pycom.heartbeat(False)
 pycom.rgbled(0xF333FF)
 def main():
@@ -31,14 +31,16 @@ def receive_data(conn,addr,sock,port):
 		else:
 			break
 def process_data(data):
-	global led
-
 	if(data == b'led green'):
 		pycom.rgbled(0x007f00)
 	if(data == b'led red'):
 		pycom.rgbled(0x7f0000)
 	if(data == b'led blue'):
 		pycom.rgbled(0x0000ff)
-
+	if("0x" in data):
+		data = data.decode('utf-8')
+		print(data)
+		color = int(data[data.index("x")+1:],16)
+		pycom.rgbled(color)
 	return False
 main()
