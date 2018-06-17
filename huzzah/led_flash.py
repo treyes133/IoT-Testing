@@ -1,6 +1,6 @@
 from machine import Pin,Signal
 import machine
-#imoports
+#imports
 
 #sets up the led, which is on pin 2 and is an output
 led_pin = machine.Pin(2,machine.Pin.OUT)
