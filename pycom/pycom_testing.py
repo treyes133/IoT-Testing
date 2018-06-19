@@ -1,13 +1,8 @@
-import machine,time
-from machine import Pin
+from machine import I2C
 
 
-activate_pin = machine.Pin("G22",machine.Pin.OUT)
+i2c = I2C(0, I2C.MASTER, pins=('P9','P10'))
 
-try:
-    while True:
-        activate_pin.toggle()
-        time.sleep(1)
-        activate_pin.toggle()
-finally:
-    pass
+i2c.init(I2C.MASTER, baudrate=20000)
+
+i2c.scan()
