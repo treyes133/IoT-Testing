@@ -31,19 +31,19 @@ try:
 		adc_value = adc.read()
 		print("adc_value",adc_value)
 		#checks if the ADC value is actually non-zero
-		if(adc_value not in range(0,5)):
+		if(adc_value not in range(0,50)):
 			#different color ranges for different variable ranges
-			if adc_value in range(6,100):
+			if adc_value in range(60,160):
 				color = "0xFF0000"
-			if adc_value in range(101,200):
+			if adc_value in range(161,260):
 				color = "0xFF9900"
-			if adc_value in range(201,300):
+			if adc_value in range(261,360):
 				color = "0xFFFE00"
-			if adc_value in range(301,400):
+			if adc_value in range(361,460):
 				color = "0x36FF00"
-			if adc_value in range(401,500):
+			if adc_value in range(461,560):
 				color = "0x00EDFF"
-			if adc_value in range(501,600):
+			if adc_value in range(561,660):
 				color = "0x6F3CFF"
 			if adc_value >= 601:
 				color = "0xF800FF"
