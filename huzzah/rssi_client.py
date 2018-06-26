@@ -18,19 +18,16 @@ sock.connect(server_address)
 try:
     while True:
         rssi = sta_if.status("rssi")*-1
-        if(max < rssi):
-            max = rssi
-        step = int((max-min)/7)
-        print(rssi)
-        if(rssi in range(6,12)):
+        print(rssi*-1)
+        if(rssi in range(0,18)):
             color = "0xFF9900"
-        elif(rssi in range(13,20)):
+        elif(rssi in range(18,27)):
         	color = "0xFFFE00"
-        elif(rssi in range(21,28)):
+        elif(rssi in range(27,39)):
         	color = "0x36FF00"
-        elif(rssi in range(29,38)):
+        elif(rssi in range(39,49)):
         	color = "0x00EDFF"
-        elif(rssi in range(39,50)):
+        elif(rssi in range(49,59)):
         	color = "0x6F3CFF"
         else:
             color = "0xF800FF"
