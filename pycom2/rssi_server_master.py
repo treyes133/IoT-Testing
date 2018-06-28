@@ -1,17 +1,17 @@
 import socket
 import sys
 global led
-import pycom, binascii
+import pycom, binascii, network
 #imports
 
 #turns off the pycom blue heartbeat
 pycom.heartbeat(False)
 
-ap_if = WLAN()
+ap_if = network.WLAN()
 #sets the rgbled to a green color, green means start
 pycom.rgbled(0x39FF14)
 
-laptop_mac = "A0"
+laptop_mac = "34-02-86-91-AD-B6"
 
 def main():
 
@@ -43,7 +43,7 @@ def process(conn,addr,sock,port):
 		#while true loop to receive data
 		while True:
 			#get data from connected devices
-            info = wlan.status('stations')
+            info = ap_if.status('stations')
             message = ""
             for i in info:
                 if(info[0] is not laptop_mac):
