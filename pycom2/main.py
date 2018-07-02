@@ -2,4 +2,3 @@
 
 #start network setup
 import network_pycom
-import server_rssi.py
