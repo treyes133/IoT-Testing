@@ -32,6 +32,8 @@ sta_if = network.WLAN(network.STA_IF)
 
 sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 
+client_address = "192.168.4.2_Huzzah"
+
 
 address = "192.168.4.1"
 port = 324
@@ -49,6 +51,17 @@ led_status = False
 gpio = []
 recv_data_labels = []
 recv_data_values = []
+
+def decompose_header(header):
+	destination = header[:header.index(",")]
+	header = header[header.index(",")+1:]
+
+	source = header[:header.index(",")]
+	header = header[header.index(",")+1:]
+
+	label = header
+
+	return [destination,source,label]
 
 def recv_msg(sock):
     # Read message length and unpack it into an integer
@@ -68,37 +81,47 @@ def recvall(sock, n):
             return None
         data += packet
     return data
-def unpack(data,delimiter_label,delimiter_value):
+def unpack(data,delimiter_sub,delimiter_break):
+    data_header = []
     data_labels = []
     data_values = []
     while len(data) > 0:
-        data_labels.append(data[:data.index(delimiter_label)]
-        data_values.append(data[data.index(delimiter_label)+1:data.index(delimiter_value)])
-        data = data[data.index(delimiter_value)+1:]
-    return [data_labels,data_values]
+        data_header.append(data[:data.index(delimiter_sub)])
+        data = data[data.index(delimiter_sub)+1:]
+        data_labels.append(data[:data.index(delimiter_sub)])
+        data = data[data.index(delimiter_sub)+1:]
+        data_values.append(data[:data.index(delimiter_break)])
+        data = data[data.index(delimiter_break)+1:]
+    return [data_header,data_labels,data_values]
 try:
     while True:
         try:
             data = recv_msg(sock)
-            [recv_data_labels,recv_data_values] = unpack(data,"+",";")
+            [recv_data_headers,recv_data_labels,recv_data_values] = unpack(data,"+",";")
         except:
             #no data
             pass
 
         #update status
         try:
-            point = recv_data_labels.index("rssi_status")
-            if(recv_data_values[point] is True and rssi is False):
-                rssi = True
-                rssi_status_change = True
-            if(recv_data_values[point] is False and rssi is True):
-                rssi = False
-                rssi_status_change = True
+
+            for x in range(0,len(recv_data_headers)):
+                header = recv_data_headers[x]
+                label = recv_data_labels[x]
+                value = recv_data_values[x]
+                [dest, source, tag] = decompose_header(header)
+                if tag is "stream-request" and value is "rssi":
+                    if(value is True and rssi is False):
+                        rssi = True
+                        rssi_status_change = True
+                    if(value is False and rssi is True):
+                        rssi = False
+                        rssi_status_change = True
         except:
             pass
 
         #clear received data
-        [recv_data_labels,recv_data_values] = None
+        [recv_data_headers,recv_data_labels,recv_data_values] = None
 
         #change variables
         if(rssi_status_change):
@@ -112,8 +135,9 @@ try:
         message = ""
         if(rssi):
             rssi_value = rssi_t.get_rssi()
+            header = "server"+","+str(client_address)+",stream-data"
             label = "rssi"
-            message += label+"+"+str(rssi_value)+";"
+            message += header+"+"+label+"+"+str(rssi_value)+";"
         if(message is not None):
             msg = struct.pack(">I", len(message)) + message
             sock.sendall(msg)

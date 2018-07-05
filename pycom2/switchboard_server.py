@@ -9,6 +9,7 @@ class client(threading.Thread):
 	self.socket = None
 	self.address = None
 	self.connection = None
+	self.data_header = []
 	self.data_label = []
 	self.data_value = []
 	self.hold_up = None
@@ -26,7 +27,8 @@ class client(threading.Thread):
 			while(self.status is True):
 				try:
 		            data = recv_msg(sock)
-		            [recv_data_labels,recv_data_values] = unpack(data,"+",";")
+		            [recv_data_headers,recv_data_labels,recv_data_values] = unpack(data,"+",";")
+					self.data_header.append(recv_data_headers)
 					self.data_label.append(recv_data_labels)
 					self.data_value.append(recv_data_values)
 		        except:
@@ -34,7 +36,8 @@ class client(threading.Thread):
 		            pass
 				if(len(self.data_label) > 0):
 					if self.hold_up is None:
-						self.hold_up = [self.data_label[0],self.data_value[0]]
+						self.hold_up = [self.data_header[0],self.data_label[0],self.data_value[0]]
+						del self.data_header[0]
 						del self.data_label[0]
 						del self.data_value[0]
 
@@ -68,25 +71,102 @@ class client(threading.Thread):
 	            return None
 	        data += packet
 	    return data
-	def unpack(self, data,delimiter_label,delimiter_value):
+	def unpack(data,delimiter_sub,delimiter_break):
+	    data_header = []
 	    data_labels = []
 	    data_values = []
 	    while len(data) > 0:
-	        data_labels.append(data[:data.index(delimiter_label)]
-	        data_values.append(data[data.index(delimiter_label)+1:data.index(delimiter_value)])
-	        data = data[data.index(delimiter_value)+1:]
-	    return [data_labels,data_values]
+	        data_header.append(data[:data.index(delimiter_sub)])
+	        data = data[data.index(delimiter_sub)+1:]
+	        data_labels.append(data[:data.index(delimiter_sub)])
+	        data = data[data.index(delimiter_sub)+1:]
+	        data_values.append(data[:data.index(delimiter_break)])
+	        data = data[data.index(delimiter_break)+1:]
+    	return [data_header,data_labels,data_values]
 class switchboard(threading.Thread):
 	self.status = True
 	self.clients = []
+
+	#[service,source,destination]
+	self.stream = []
 	def __init__(self, clients):
 		threading.Thread.__init__(self)
 		self.clients = clients
 	def main(self):
 		if(len(self.clients) > 0):
-			#add a third packet to the message, a source, destination, and packet tag
+			for x in range(0,len(self.clients)):
+				client = self.clients[x]
+				#header, label, data
+				client_data = client.next_data()
+				if(client_data is not None):
+					[dest, source, tag] = self.decompose_header(client_data[0])
+					label = client_data[1]
+					data = client_data[2]
+					if(tag is "stream-request"):
+						in_stream = False
+						for contents in stream:
+							#this case is the service is already streaming, so add to dest list
+							if contents[0] is label and dest is contents[1] and source not in contents[2] and data is True:
+								contents[2].append(source)
+								in_stream = True
+							if contents[0] is label and dest is contents[1] and source not in contents[2] and data is False:
+								#in the stream and we want to remove
+								del contents[2].index(source)
+						#this service is not currently being requested from this client, so start a new service
+						if not in_stream:
+							self.stream.append([label,dest,source])
+							self.single_packet(dest,tag,label,data,client.socket)
+					if(tag is "stream-data"):
+						#[service,source,destination] - stream
+						for x in range(0,len(stream)):
+							stream_service = stream[0]
+							stream_source = stream[1]
+							stream_dest = stream[2]
+							if(stream_source is source and label is stream_service):
+								client_destinations = stream_dest
+								for x in range(0,len(client_destinations)):
+									for client_object in self.clients:
+										if client_destinations[x] is client_object.address:
+											#sending the stream packet to the client
+											self.stream_packet(client_destinations[x],stream_source,tag,label,data,client.socket)
+					if(tag is "forward"):
+						for client_object in self.clients:
+							if(client_object.address is dest):
+								self.single_packet_forward(source,dest,tag,label,data,client_object)
 		else:
-			time.sleep(0.01)
+			time.sleep(0.001)
+	def single_packet_forward(self, source, destination, tag, label, data, sock):
+		header = dest+","+"server"+","+tag
+		message = header+"+"+label+"+"+data+";"
+		msg = struct.pack(">I", len(message)) + message
+        sock.sendall(msg)
+
+	def stream_packet(self, destination, source, tag, label, data, sock):
+		header = dest+","+source+","+tag
+		message = header+"+"+label+"+"+data+";"
+		msg = struct.pack(">I", len(message)) + message
+        sock.sendall(msg)
+
+	def single_packet(self, dest, tag, label, data, sock):
+		header = dest+","+"server"+","+tag
+		message = header+"+"+label+"+"+data+";"
+		msg = struct.pack(">I", len(message)) + message
+        sock.sendall(msg)
+
+	def decompose_header(self, header):
+		destination = header[:header.index(",")]
+		header = header[header.index(",")+1:]
+
+		source = header[:header.index(",")]
+		header = header[header.index(",")+1:]
+
+		label = header
+
+		return [destination,source,label]
+
+
+
+
 	def update_clients(self, new_list):
 		self.clients = new_list
 		remove_index = []
