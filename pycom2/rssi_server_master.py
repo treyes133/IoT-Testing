@@ -11,11 +11,14 @@ ap_if = network.WLAN()
 #sets the rgbled to a green color, green means start
 pycom.rgbled(0x39FF14)
 
+<<<<<<< HEAD
 laptop_addr = ["192.168.4.2"]
 
 thread_status = True
 
 lock = Locking.lock()
+=======
+>>>>>>> 1f988bf8eddaac6d335d88dc3a50d1110daee1f8
 
 def main():
 
