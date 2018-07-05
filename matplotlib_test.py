@@ -3,9 +3,9 @@ import numpy as np
 import time
 
 start_time = time.time()
-x_dat = np.arange(0,50,1)
-y_dat = list(np.random.choice(range(-100,100,1), size=50))
-y_dat2 = np.arange(-40,10,1)
+x_dat = [0]
+y_dat = list(np.random.choice(range(-100,-10,1), size=1000))
+y_dat2 = list(np.random.choice(range(-100,-10,1), size=1000))
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
@@ -18,11 +18,11 @@ li2, = ax.plot(0,0,color = (0.3,0,1))
 x = [0]
 y = [-50]
 y2 = [-40]
-t = 1
+t = 0
 delay = 0.001
 ax.legend(["L1","L2"])
 plt.show(block=False)
-for a in range(1,len(x_dat)):
+for a in range(1,len(y_dat)):
     x.append(x_dat[t])
     y.append(y_dat[t])
     y2.append(y_dat2[t])
@@ -30,7 +30,8 @@ for a in range(1,len(x_dat)):
     li.set_ydata(y)
     li2.set_xdata(x)
     li2.set_ydata(y2)
-    time.sleep(delay)
+    time.sleep(0.01)
+    x_dat.append(time.time()-start_time)
     t += 1
     ax.relim() 
     ax.autoscale_view(True,True,True) 
