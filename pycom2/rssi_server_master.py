@@ -11,7 +11,6 @@ ap_if = network.WLAN()
 #sets the rgbled to a green color, green means start
 pycom.rgbled(0x39FF14)
 
-laptop_mac = "34-02-86-91-AD-B6"
 
 def main():
 
