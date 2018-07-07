@@ -1,6 +1,7 @@
 import sys,socket,time,machine,network,threading,struct
 from machine import Pin, Signal
 
+
 class rssi_thread(threading.Thread):
     self.status = True
     self.sta_if = None
@@ -21,7 +22,26 @@ class rssi_thread(threading.Thread):
         return self.rssi_value
     def stop(self):
         self.status = False
+class ultrasonic_thread(threading.Thread):
+    import ultrasonic
+    self.status = True
+    #sample rate is per second
+    self.sample = 10
+    self.average = 4
+    self.ultrasonic_value = None
 
+    def __init__(self):
+        threading.Thread.__init__(self)
+    def start(self):
+        while(self.status is True):
+            self.ultrasonic_value = measurement(self.average)
+            time.sleep(1/self.sample)
+    def set_rate(self,rate):
+        self.sample = rate
+    def get_ultrasonic(self):
+        return self.ultrasonic_value
+    def stop(self):
+        self.status = False
 
 
 services = ["rssi","led","gpio"]
@@ -46,6 +66,10 @@ socket.setblocking(0)
 rssi = False
 rssi_status_change = False
 rssi_t = rssi_thread(sta_if)
+
+ultra = False
+ultra_status_change = False
+ultra_t = ultrasonic_thread()
 
 led_status = False
 gpio = []
@@ -117,6 +141,14 @@ try:
                     if(value is False and rssi is True):
                         rssi = False
                         rssi_status_change = True
+                if tag is "stream-request" and value is "ultrasonic":
+                    if(value is True and ultra is False):
+                        ultra = True
+                        ultra_status_change = True
+                    if(value is False and ultra is True):
+                        ultra = False
+                        ultra_status_change = True
+
         except:
             pass
 
@@ -127,9 +159,16 @@ try:
         if(rssi_status_change):
             rssi_status_change = False
             if(rssi is True):
-                rssi_t.start()
+                ultra_t.start()
             if(rssi is False)
-                rssi_t.stop()
+                ultra_t.stop()
+
+        if(ultra_status_change):
+            ultra_status_change = False
+            if(ultra is True):
+                ultra_t.start()
+            if(ultra is False)
+                ultra_t.stop()
 
         #send data
         message = ""
@@ -138,6 +177,11 @@ try:
             header = "server"+","+str(client_address)+",stream-data"
             label = "rssi"
             message += header+"+"+label+"+"+str(rssi_value)+";"
+        if(ultra):
+            ultra_value = ultra_t.get_ultrasonic()
+            header = "server"+","+str(client_address)+",stream-data"
+            label = "ultrasonic"
+            message += header+"+"+label+"+"+str(ultra_value)+";"
         if(message is not None):
             msg = struct.pack(">I", len(message)) + message
             sock.sendall(msg)
