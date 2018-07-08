@@ -104,6 +104,7 @@ class switchboard():
 		return
 	def main(self):
 <<<<<<< HEAD
+<<<<<<< HEAD
 		if(len(self.clients) > 0):
 			for x in range(0,len(self.clients)):
 				client = self.clients[x]
@@ -147,6 +148,8 @@ class switchboard():
 		else:
 			time.sleep(0.001)
 =======
+=======
+>>>>>>> bb58ea4ac82ab281c6bf2d01859b513f2fda341c
 		print("main")
 		while self.status is True:
 			if(len(self.clients) > 0):
@@ -192,7 +195,10 @@ class switchboard():
 									self.single_packet_forward(source,dest,tag,label,data,client_object)
 			else:
 				time.sleep(0.001)
+<<<<<<< HEAD
 >>>>>>> b21048e8d1ffc28366a7895f2b52cd82c1379f26
+=======
+>>>>>>> bb58ea4ac82ab281c6bf2d01859b513f2fda341c
 	def single_packet_forward(self, source, destination, tag, label, data, sock):
 		header = dest+","+"server"+","+tag
 		message = header+"+"+label+"+"+data+";"
