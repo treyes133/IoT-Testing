@@ -64,7 +64,7 @@ sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 client_address = "192.168.4.2"
 
 
-address = "192.168.4.1"
+address = "192.168.4.3"
 port = 324
 
 server_address = (address, port)
@@ -80,6 +80,7 @@ ultra = False
 
 led_status = False
 gpio = []
+recv_data_headers = []
 recv_data_labels = []
 recv_data_values = []
 
@@ -164,33 +165,35 @@ try:
             data = recv_msg(sock)
             [recv_data_headers,recv_data_labels,recv_data_values] = unpack(data,"+",";")
         except:
-            #no data
-            pass
+            print("no data")
 
         #update status
         try:
             print("TEST3")
-            for x in range(0,len(recv_data_headers)):
-                header = recv_data_headers[x]
-                label = recv_data_labels[x]
-                value = recv_data_values[x]
-                [dest, source, tag] = decompose_header(header)
-                if tag is "stream-request" and value is "rssi":
-                    if(value is True and rssi is False):
-                        rssi = True
-                    if(value is False and rssi is True):
-                        rssi = False
-                if tag is "stream-request" and value is "ultrasonic":
-                    if(value is True and ultra is False):
-                        ultra = True
-                    if(value is False and ultra is True):
-                        ultra = False
+            if(len(recv_data_headers) is not 0):
+                for x in range(0,len(recv_data_headers)):
+                    header = recv_data_headers[x]
+                    label = recv_data_labels[x]
+                    value = recv_data_values[x]
+                    [dest, source, tag] = decompose_header(header)
+                    if tag is "stream-request" and value is "rssi":
+                        if(value is True and rssi is False):
+                            rssi = True
+                        if(value is False and rssi is True):
+                            rssi = False
+                    if tag is "stream-request" and value is "ultrasonic":
+                        if(value is True and ultra is False):
+                            ultra = True
+                        if(value is False and ultra is True):
+                            ultra = False
 
         except:
             pass
 
         #clear received data
-        [recv_data_headers,recv_data_labels,recv_data_values] = None
+        recv_data_headers = None
+        recv_data_labels = None
+        recv_data_values = None
 
         print("TEST4")
         #send data
