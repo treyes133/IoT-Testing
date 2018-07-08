@@ -1,11 +1,10 @@
 import socket
 import sys, time
-global led
-import pycom, binascii, network, _thread, struct
+import  binascii, threading
 #imports
 
 print("test1")
-class client:
+class client(threading.Thread):
 	status = True
 	socket = None
 	address = None
@@ -16,19 +15,19 @@ class client:
 	hold_up = None
 	t = None
 	def __init__(self, sock, addr, conn):
+		threading.Thread.__init__(self)
 		self.socket = sock
 		self.address = addr
 		self.connection = conn
-		self.t = _thread.start_new_thread(self.start())
 
-	def start(self):
+	def run(self):
 		try:
 			#nonblocking socket
 			self.socket.setblocking(0)
 
 			while(self.status is True):
 				try:
-					data = self.recv_msg(self.socket)
+					data = self.recv_msg(self.connection)
 					temp = self.unpack(data,"+",";")
 					recv_data_headers = temp[0]
 					recv_data_labels = temp[1]
@@ -39,8 +38,16 @@ class client:
 					self.data_header.append(recv_data_headers)
 					self.data_label.append(recv_data_labels)
 					self.data_value.append(recv_data_values)
+				except(socket.error, e):
+					if e.errno is errno.ECONNRESET:
+						print("Client disconnected")
+						self.status = False
+						while self.status is False:
+							time.sleep(0.001)
+						self.status = False
 				except Exception as exp:
-					print(exp)
+					#print(exp)
+					pass
 				if(len(self.data_label) > 0):
 					if self.hold_up is None:
 						self.hold_up = [self.data_header[0],self.data_label[0],self.data_value[0]]
@@ -54,6 +61,7 @@ class client:
 			self.status = False
 			while self.status is False:
 				time.sleep(0.001)
+		print("Thread closing ",self.address)
 		#after the above finishes, the thread will die
 	def next_data(self):
 		temp = self.hold_up
@@ -61,12 +69,13 @@ class client:
 		return temp
 	def recv_msg(self, sock):
 		# Read message length and unpack it into an integer
-		raw_msglen = recvall(sock, 4)
+		raw_msglen = self.recvall(sock, 16)
 		if not raw_msglen:
 			return None
-		msglen = struct.unpack('>I', raw_msglen)[0]
+		msglen = int(raw_msglen)
+		
 		# Read the message data
-		return recvall(sock, msglen)
+		return self.recvall(sock, msglen)
 
 	def recvall(self, sock, n):
 	    # Helper function to recv n bytes or return None if EOF is hit
@@ -89,21 +98,17 @@ class client:
 			data_values.append(data[:data.index(delimiter_break)])
 			data = data[data.index(delimiter_break)+1:]
 		return [data_header,data_labels,data_values]
-class switchboard():
+class switchboard(threading.Thread):
 	status = True
 	clients = []
 
 	#[service,source,destination]
 	stream = []
-	t = None
 	def __init__(self, clients):
-		print("init")
-		self.t = _thread.start_new_thread(self.main())
+		threading.Thread.__init__(self)
 		self.clients = clients
-		self.t.start()
-		return
+		print("Switchboard active!")
 	def main(self):
-<<<<<<< HEAD
 		if(len(self.clients) > 0):
 			for x in range(0,len(self.clients)):
 				client = self.clients[x]
@@ -122,7 +127,8 @@ class switchboard():
 								in_stream = True
 							if contents[0] is label and dest is contents[1] and source not in contents[2] and data is False:
 								#in the stream and we want to remove
-								del contents[2].index(source)
+								#del contents[2].index(source)
+								pass
 						#this service is not currently being requested from this client, so start a new service
 						if not in_stream:
 							self.stream.append([label,dest,source])
@@ -146,7 +152,6 @@ class switchboard():
 								self.single_packet_forward(source,dest,tag,label,data,client_object)
 		else:
 			time.sleep(0.001)
-=======
 		print("main")
 		while self.status is True:
 			if(len(self.clients) > 0):
@@ -192,23 +197,34 @@ class switchboard():
 									self.single_packet_forward(source,dest,tag,label,data,client_object)
 			else:
 				time.sleep(0.001)
->>>>>>> b21048e8d1ffc28366a7895f2b52cd82c1379f26
 	def single_packet_forward(self, source, destination, tag, label, data, sock):
 		header = dest+","+"server"+","+tag
 		message = header+"+"+label+"+"+data+";"
-		msg = struct.pack(">I", len(message)) + message
+		msg_len = ""
+		for(x in range(0,16-len(message))):
+                        msg_len +=0
+                msg_len += len(message)
+		msg = msg_len + message
 		sock.sendall(msg)
 
 	def stream_packet(self, destination, source, tag, label, data, sock):
 		header = dest+","+source+","+tag
 		message = header+"+"+label+"+"+data+";"
-		msg = struct.pack(">I", len(message)) + message
+		msg_len = ""
+		for(x in range(0,16-len(message))):
+                        msg_len +=0
+                msg_len += len(message)
+		msg = msg_len + message
 		sock.sendall(msg)
 
 	def single_packet(self, dest, tag, label, data, sock):
 		header = dest+","+"server"+","+tag
 		message = header+"+"+label+"+"+data+";"
-		msg = struct.pack(">I", len(message)) + message
+		msg_len = ""
+		for(x in range(0,16-len(message))):
+                        msg_len +=0
+                msg_len += len(message)
+		msg = msg_len + message
 		sock.sendall(msg)
 
 	def decompose_header(self, header):
@@ -237,11 +253,6 @@ class switchboard():
 		return remove_index
 
 #turns off the pycom blue heartbeat
-pycom.heartbeat(False)
-
-ap_if = network.WLAN()
-#sets the rgbled to a green color, green means start
-pycom.rgbled(0x39FF14)
 
 print("test1")
 
@@ -268,13 +279,16 @@ while True:
 		conn,addr = sock.accept()
 		#print client address info
 		print("client connected :: ",addr)
-		clients.append(client(sock,addr,conn))
-		clients[len(clients)-1].start()
+		new_client = client(sock,addr,conn)
+		clients.append(new_client)
+		new_client.start()
+		print("forked client")
 		remove_index = switch_board.update_clients(clients)
 		for x in range(len(remove_index)-1,-1,-1):
 			del clients[x]
 	except Exception as exc:
-		print(exc)
+		#print(exc)
+		pass
 	finally:
 		for client in clients:
 			client.status = False
