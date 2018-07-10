@@ -1,0 +1,2 @@
+python pycom.py
+pause

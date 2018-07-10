@@ -174,6 +174,27 @@ try:
             pass
         #update status
         try:
+<<<<<<< HEAD
+=======
+            print("TEST3")
+<<<<<<< HEAD
+            for x in range(0,len(recv_data_headers)):
+                header = recv_data_headers[x]
+                label = recv_data_labels[x]
+                value = recv_data_values[x]
+                [dest, source, tag] = decompose_header(header)
+                if tag is "stream-request" and value is "rssi":
+                    if(value is True and rssi is False):
+                        rssi = True
+                    if(value is False and rssi is True):
+                        rssi = False
+                if tag is "stream-request" and value is "ultrasonic":
+                    if(value is True and ultra is False):
+                        ultra = True
+                    if(value is False and ultra is True):
+                        ultra = False
+=======
+>>>>>>> cc7a35c0981afa4c5ae592a6a31b34d3c6052bca
             if(len(recv_data_headers) is not 0):
                 print("received data")
                 for x in range(0,len(recv_data_headers)):
@@ -199,14 +220,24 @@ try:
                             ultra = True
                         if(value is False and ultra is True):
                             ultra = False
+>>>>>>> bb58ea4ac82ab281c6bf2d01859b513f2fda341c
 
         except:
             pass
         #clear received data
+<<<<<<< HEAD
+        [recv_data_headers,recv_data_labels,recv_data_values] = None
+=======
         recv_data_headers = None
         recv_data_labels = None
         recv_data_values = None
+<<<<<<< HEAD
         print("rssi",rssi)
+=======
+>>>>>>> bb58ea4ac82ab281c6bf2d01859b513f2fda341c
+
+        print("TEST4")
+>>>>>>> cc7a35c0981afa4c5ae592a6a31b34d3c6052bca
         #send data
         message = ""
         if(rssi):
