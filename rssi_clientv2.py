@@ -1,9 +1,8 @@
-import sys,socket,time,threading,struct,msvcrt
+import sys,socket,time,threading,struct,msvcrt,traceback
 import numpy as np
 import matplotlib.pyplot as plt
 
 class plotter(threading.Thread):
-    import matplotlib.pyplot as plt
     import numpy as np
     status = True
     plot_data = []
@@ -18,11 +17,11 @@ class plotter(threading.Thread):
         threading.Thread.__init__(self)
         self.plot_data = data
     def start(self):
-        fig = plt.figure()
+        fig = matplotlib.pyplot.figure()
         ax = fig.add_subplot(111)
         fig.show()
         fig.canvas.draw()
-        plt.show(block=False)
+        matplotlib.pyplot.show(block=False)
         time.sleep(1)
         while(self.status is True):
             x_data.append(time.time()-self.start_time)
@@ -37,9 +36,9 @@ class plotter(threading.Thread):
             #update the axis
             fig.canvas.draw()
             #delay the plot, a annoying but required process
-            plt.pause(delay)
-
+            matplotlib.pyplot.pause(delay)
             time.sleep(self.delay)
+            
     def check_changes(self, plot, plot_new):
         plot_merge = []
         new_legend = []
@@ -87,7 +86,7 @@ def recv_msg(sock):
         return None
     msglen = struct.unpack('>I', raw_msglen)[0]
     # Read the message data
-    return recvall(sock, msglen)
+    return recvall(sock, msglen).decode('utf-8')
 def recvall(sock, n):
     # Helper function to recv n bytes or return None if EOF is hit
     data = b''
@@ -112,18 +111,17 @@ def unpack(data,delimiter_sub,delimiter_break):
 def stream_request(sock,source, destination,label,data):
     tag = "stream-request"
     header = str(destination)+","+str(source)+","+str(tag)
-    message = header+"+"+str(label)+"+"+str(data)
-    print("message type",type(message))
-    msg = struct.pack('>I', len(message)).encode('utf-8')+ message
-    print(msg)
-    sock.sendall(message)
+    message = header+"+"+str(label)+"+"+str(data)+";"
+    message = bytes(message.encode('utf-8'))
+    msg = struct.pack('>I', len(message)) + message 
+    sock.sendall(msg)
 
 lock = threading.Lock()
 
 #server socket setup (client)
 sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 
-address = "192.168.4.3"
+address = "192.168.4.8"
 
 port = 324
 print("hello?")
@@ -131,7 +129,7 @@ server_address = (address, port)
 print("hello2")
 sock.connect(server_address)
 print("hello3")
-source = "192.168.4.3"
+source = "192.168.4.2"
 
 sock.setblocking(0)
 
@@ -157,7 +155,11 @@ try:
                 label = recv_data_labels[x]
                 value = recv_data_values[x]
                 [dest, source, tag] = decompose_header(header)
-                if tag is "stream-data" and value is "rssi":
+                print(label)
+                print(dest)
+                print(source)
+                print(tag)
+                if tag == "stream-data" and value == "rssi":
                     found = False
                     for graphs in rssi:
                         if graphs[0] is source:
@@ -166,7 +168,7 @@ try:
                             break
                     if not found:
                         rssi.append([source,[value]])
-                if tag is "stream-data" and value is "ultrasonic":
+                if tag == "stream-data" and value == "ultrasonic":
                     found = False
                     for graphs in ultrasonic:
                         if graphs[0] is source:
@@ -179,6 +181,7 @@ try:
         except:
             pass
         key_press = ord(msvcrt.getch())
+        print(key_press)
         if key_press is 114:
             print("Press A to add or R to remove :: ")
             print("Currently Connected")
@@ -215,3 +218,4 @@ try:
                     print("Error, please try again")
 except Exception as e:
     print("Fatal Error ",e)
+    traceback.print_exc()

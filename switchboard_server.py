@@ -1,6 +1,6 @@
 import socket
 import sys, time
-import  binascii, threading
+import  binascii, threading, struct, traceback
 #imports
 
 print("test1")
@@ -17,7 +17,7 @@ class client(threading.Thread):
 	def __init__(self, sock, addr, conn):
 		threading.Thread.__init__(self)
 		self.socket = sock
-		self.address = addr
+		self.address = addr[0]
 		self.connection = conn
 
 	def run(self):
@@ -27,24 +27,29 @@ class client(threading.Thread):
 
 			while(self.status is True):
 				try:
+					#print("receiving data")
 					data = self.recv_msg(self.connection)
-					temp = self.unpack(data,"+",";")
-					recv_data_headers = temp[0]
-					recv_data_labels = temp[1]
-					recv_data_values = temp[2]
+					if data is not None:
+						print("unpacking data")
+						temp = self.unpack(data,"+",";")
+						print("parsing data")
+						recv_data_headers = temp[0]
+						recv_data_labels = temp[1]
+						recv_data_values = temp[2]
 
 
-
-					self.data_header.append(recv_data_headers)
-					self.data_label.append(recv_data_labels)
-					self.data_value.append(recv_data_values)
-				except(socket.error, e):
-					if e.errno is errno.ECONNRESET:
-						print("Client disconnected")
-						self.status = False
-						while self.status is False:
-							time.sleep(0.001)
-						self.status = False
+						print("added to hold up")
+						self.data_header.append(recv_data_headers)
+						self.data_label.append(recv_data_labels)
+						self.data_value.append(recv_data_values)
+						print(self.status)
+				#except(socket.error):
+				#	if e.errno is errno.ECONNRESET:
+				#		print("Client disconnected")
+				#		self.status = False
+				#		while self.status is False:
+				#			time.sleep(0.001)
+				#		self.status = False
 				except Exception as exp:
 					#print(exp)
 					pass
@@ -55,9 +60,10 @@ class client(threading.Thread):
 						del self.data_label[0]
 						del self.data_value[0]
 				time.sleep(0.001)
-		except Exception as e:
+		except:
 			#client disconnected
-			print("client ", self.address, " disconnected :: ",e)
+			print("client ", self.address, " disconnected :: ")
+			traceback.print_exc()
 			self.status = False
 			while self.status is False:
 				time.sleep(0.001)
@@ -66,16 +72,16 @@ class client(threading.Thread):
 	def next_data(self):
 		temp = self.hold_up
 		self.hold_up = None
+		#print("Hold up pulled")
 		return temp
 	def recv_msg(self, sock):
 		# Read message length and unpack it into an integer
-		raw_msglen = self.recvall(sock, 16)
+		raw_msglen = self.recvall(sock, 4)
 		if not raw_msglen:
 			return None
-		msglen = int(raw_msglen)
-		
+		msglen = struct.unpack('>I', raw_msglen)[0]
 		# Read the message data
-		return self.recvall(sock, msglen)
+		return self.recvall(sock, msglen).decode('utf-8')
 
 	def recvall(self, sock, n):
 	    # Helper function to recv n bytes or return None if EOF is hit
@@ -86,7 +92,7 @@ class client(threading.Thread):
 	            return None
 	        data += packet
 	    return data
-	def unpack(data,delimiter_sub,delimiter_break):
+	def unpack(self,data,delimiter_sub,delimiter_break):
 		data_header = []
 		data_labels = []
 		data_values = []
@@ -108,50 +114,7 @@ class switchboard(threading.Thread):
 		threading.Thread.__init__(self)
 		self.clients = clients
 		print("Switchboard active!")
-	def main(self):
-		if(len(self.clients) > 0):
-			for x in range(0,len(self.clients)):
-				client = self.clients[x]
-				#header, label, data
-				client_data = client.next_data()
-				if(client_data is not None):
-					[dest, source, tag] = self.decompose_header(client_data[0])
-					label = client_data[1]
-					data = client_data[2]
-					if(tag == "stream-request"):
-						in_stream = False
-						for contents in stream:
-							#this case is the service is already streaming, so add to dest list
-							if contents[0] is label and dest is contents[1] and source not in contents[2] and data is True:
-								contents[2].append(source)
-								in_stream = True
-							if contents[0] is label and dest is contents[1] and source not in contents[2] and data is False:
-								#in the stream and we want to remove
-								#del contents[2].index(source)
-								pass
-						#this service is not currently being requested from this client, so start a new service
-						if not in_stream:
-							self.stream.append([label,dest,source])
-							self.single_packet(dest,tag,label,data,client.socket)
-					if(tag == "stream-data"):
-						#[service,source,destination] - stream
-						for x in range(0,len(stream)):
-							stream_service = stream[0]
-							stream_source = stream[1]
-							stream_dest = stream[2]
-							if(stream_source is source and label is stream_service):
-								client_destinations = stream_dest
-								for x in range(0,len(client_destinations)):
-									for client_object in self.clients:
-										if client_destinations[x] is client_object.address:
-											#sending the stream packet to the client
-											self.stream_packet(client_destinations[x],stream_source,tag,label,data,client.socket)
-					if(tag == "forward"):
-						for client_object in self.clients:
-							if(client_object.address is dest):
-								self.single_packet_forward(source,dest,tag,label,data,client_object)
-		else:
-			time.sleep(0.001)
+	def run(self):
 		print("main")
 		while self.status is True:
 			if(len(self.clients) > 0):
@@ -160,38 +123,57 @@ class switchboard(threading.Thread):
 					#header, label, data
 					client_data = client.next_data()
 					if(client_data is not None):
-						[dest, source, tag] = self.decompose_header(client_data[0])
-						label = client_data[1]
-						data = client_data[2]
-						if(tag is "stream-request"):
+						print("hold up has value")
+						[dest, source, tag] = self.decompose_header(client_data[0][0])
+						label = client_data[1][0]
+						data = bool(client_data[2])
+						print(data)
+						print(label)
+						print(tag)
+						if(tag == "stream-request"):
+							print("stream-request")
 							in_stream = False
-							for contents in stream:
+							for contents in self.stream:
 								#this case is the service is already streaming, so add to dest list
 								if contents[0] is label and dest is contents[1] and source not in contents[2] and data is True:
 									contents[2].append(source)
 									in_stream = True
+									print("added to stream")
 								if contents[0] is label and dest is contents[1] and source not in contents[2] and data is False:
 									#in the stream and we want to remove
 									#del contents[2].index(source)
+									print("removing from stream")
 									pass
 							#this service is not currently being requested from this client, so start a new service
-							if not in_stream:
+							print("instream",in_stream)
+							if not in_stream and data is True:
 								self.stream.append([label,dest,source])
-								self.single_packet(dest,tag,label,data,client.socket)
-						if(tag is "stream-data"):
+								print("creating new stream")
+								for client in self.clients:
+									print(client.address)
+									print(dest)
+									if client.address == dest:
+										self.single_packet(dest,tag,label,data,client.connection)
+										#print("packet sent",dest,client.address)
+										break
+						if(tag == "stream-data"):
 							#[service,source,destination] - stream
-							for x in range(0,len(stream)):
-								stream_service = stream[0]
-								stream_source = stream[1]
-								stream_dest = stream[2]
+							print("looking for forward data")
+							for x in range(0,len(self.stream)):
+								stream_service = self.stream[x][0]
+								stream_source = self.stream[x][1]
+								stream_dest = self.stream[x][2]
 								if(stream_source is source and label is stream_service):
 									client_destinations = stream_dest
+									print(client_destinations)
 									for x in range(0,len(client_destinations)):
+										print("destination",client_destinations[x])
 										for client_object in self.clients:
 											if client_destinations[x] is client_object.address:
 												#sending the stream packet to the client
+												print("client found, forwarding packet")
 												self.stream_packet(client_destinations[x],stream_source,tag,label,data,client.socket)
-						if(tag is "forward"):
+						if(tag == "forward"):
 							for client_object in self.clients:
 								if(client_object.address is dest):
 									self.single_packet_forward(source,dest,tag,label,data,client_object)
@@ -200,33 +182,27 @@ class switchboard(threading.Thread):
 	def single_packet_forward(self, source, destination, tag, label, data, sock):
 		header = dest+","+"server"+","+tag
 		message = header+"+"+label+"+"+data+";"
-		msg_len = ""
-		for(x in range(0,16-len(message))):
-                        msg_len +=0
-                msg_len += len(message)
-		msg = msg_len + message
+		message = bytes(message.encode('utf-8'))
+		msg = struct.pack('>I', len(message)) + message 
 		sock.sendall(msg)
 
 	def stream_packet(self, destination, source, tag, label, data, sock):
 		header = dest+","+source+","+tag
 		message = header+"+"+label+"+"+data+";"
-		msg_len = ""
-		for(x in range(0,16-len(message))):
-                        msg_len +=0
-                msg_len += len(message)
-		msg = msg_len + message
+		message = bytes(message.encode('utf-8'))
+		msg = struct.pack('>I', len(message)) + message 
 		sock.sendall(msg)
+		print("message sent ::",destination)
 
 	def single_packet(self, dest, tag, label, data, sock):
+		
 		header = dest+","+"server"+","+tag
-		message = header+"+"+label+"+"+data+";"
-		msg_len = ""
-		for(x in range(0,16-len(message))):
-                        msg_len +=0
-                msg_len += len(message)
-		msg = msg_len + message
+		message = header+"+"+label+"+"+str(data)+";"
+		print(message)
+		message = bytes(message.encode('utf-8'))
+		msg = struct.pack('>I', len(message)) + message 
 		sock.sendall(msg)
-
+		print("packet sent")
 	def decompose_header(self, header):
 		destination = header[:header.index(",")]
 		header = header[header.index(",")+1:]
@@ -272,6 +248,7 @@ print("accepting clients on port ",port)
 clients = []
 
 switch_board = switchboard(clients)
+switch_board.start()
 print("test3")
 while True:
 	try:
@@ -289,6 +266,6 @@ while True:
 	except Exception as exc:
 		#print(exc)
 		pass
-	finally:
-		for client in clients:
-			client.status = False
+for client in clients:
+	client.status = False
+	print("clients closing")
