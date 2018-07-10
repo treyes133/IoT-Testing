@@ -61,10 +61,10 @@ sta_if = network.WLAN(network.STA_IF)
 
 sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 
-client_address = "192.168.4.2"
+client_address = "192.168.4.3"
 
 
-address = "192.168.4.3"
+address = "192.168.4.2"
 port = 324
 
 server_address = (address, port)
@@ -100,10 +100,12 @@ def recv_msg(sock):
     # Read message length and unpack it into an integer
     raw_msglen = recvall(sock, 4)
     if not raw_msglen:
+        print("no data")
         return None
-    msglen = struct.unpack('>I', raw_msglen)[0]
+    msglen = ustruct.unpack('>I', raw_msglen)[0]
+    print(msglen)
     # Read the message data
-    return recvall(sock, msglen)
+    return recvall(sock, msglen).decode()
 
 def recvall(sock, n):
     # Helper function to recv n bytes or return None if EOF is hit
@@ -113,6 +115,7 @@ def recvall(sock, n):
         if not packet:
             return None
         data += packet
+        print(data)
     return data
 def unpack(data,delimiter_sub,delimiter_break):
     data_header = []
@@ -158,30 +161,40 @@ def measurement(avg):
 
     utime.sleep_us(10)
     return sum(measurements)/len(measurements)
+
+loop = 0
 try:
     print("starting")
     while True:
         try:
             data = recv_msg(sock)
+            print(data)
             [recv_data_headers,recv_data_labels,recv_data_values] = unpack(data,"+",";")
         except:
-            print("no data")
-
+            pass
         #update status
         try:
-            print("TEST3")
             if(len(recv_data_headers) is not 0):
+                print("received data")
                 for x in range(0,len(recv_data_headers)):
                     header = recv_data_headers[x]
                     label = recv_data_labels[x]
                     value = recv_data_values[x]
+
                     [dest, source, tag] = decompose_header(header)
-                    if tag is "stream-request" and value is "rssi":
+                    print("dest "+dest)
+                    print("source "+source)
+                    print("tag "+tag)
+                    print("label "+label)
+                    print("value "+value)
+                    if tag == "stream-request" and label == "rssi":
+                        value = bool(value)
                         if(value is True and rssi is False):
                             rssi = True
                         if(value is False and rssi is True):
                             rssi = False
-                    if tag is "stream-request" and value is "ultrasonic":
+                    if tag == "stream-request" and label == "ultrasonic":
+                        value = bool(value)
                         if(value is True and ultra is False):
                             ultra = True
                         if(value is False and ultra is True):
@@ -189,13 +202,11 @@ try:
 
         except:
             pass
-
         #clear received data
         recv_data_headers = None
         recv_data_labels = None
         recv_data_values = None
-
-        print("TEST4")
+        print("rssi",rssi)
         #send data
         message = ""
         if(rssi):
@@ -209,7 +220,9 @@ try:
             label = "ultrasonic"
             message += header+"+"+label+"+"+str(ultra_value)+";"
         if(len(message) > 0):
-            msg = struct.pack('>I', len(message)) + message
+            print(message)
+            msg = ustruct.pack('>I', len(message)) + bytes(message.encode())
             sock.sendall(msg)
+        utime.sleep(1)
 except Exception as exp:
-    print("Exiting ",exp)
+    print("Exiting",exp)
